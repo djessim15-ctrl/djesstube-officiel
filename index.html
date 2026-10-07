@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DjessTube — YouTube en mieux</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #12121a;
+    --panneau: #17171f;
+    --panneau2: #1f1f2a;
+    --bord: #2a2a38;
+    --texte: #f2f2f7;
+    --texte2: #9a9aad;
+    --accent: #ff3d5a;
+    --accent2: #ff7a3d;
+    --degrade: linear-gradient(135deg, #ff3d5a, #ff7a3d);
+    --ok: #2ed573;
+    --rayon: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scrollbar-color: #333 var(--bg); }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1c1230 0%, var(--bg) 55%),
+                radial-gradient(900px 500px at -10% 20%, #16101d 0%, var(--bg) 60%);
+    background-attachment: fixed;
+    color: var(--texte);
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
+
+  /* ===== entête ===== */
+  header {
+    display: flex; align-items: center; gap: 18px; padding: 12px 24px;
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(10,10,15,.75); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--bord);
+  }
+  .logo { font-size: 24px; font-weight: 800; white-space: nowrap; cursor: pointer; letter-spacing: -.5px; }
+  .logo .d { color: var(--texte); }
+  .logo .t {
+    background: var(--degrade); color: #fff; padding: 2px 10px; border-radius: 10px;
+    margin-left: 2px; box-shadow: 0 4px 18px rgba(255,61,90,.45);
+  }
+  .recherche { flex: 1; display: flex; max-width: 620px; }
+  .recherche input {
+    flex: 1; padding: 11px 18px; border: 1px solid var(--bord); border-radius: 22px 0 0 22px;
+    background: rgba(0,0,0,.35); color: var(--texte); font-size: 15px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .recherche input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,61,90,.18); }
+  .recherche button {
+    padding: 11px 24px; border: none; border-radius: 0 22px 22px 0;
+    background: var(--degrade); color: #fff; cursor: pointer; font-size: 16px;
+    transition: filter .15s;
+  }
+  .recherche button:hover { filter: brightness(1.15); }
+  .badge-dl {
+    margin-left: auto; font-size: 13px; color: var(--texte2); display: none;
+    background: var(--panneau2); border: 1px solid var(--bord);
+    padding: 7px 14px; border-radius: 18px; cursor: pointer;
+  }
+  .badge-dl.actif { display: block; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { border-color: var(--accent); color: var(--texte); } }
+
+  /* ===== disposition ===== */
+  .page { display: flex; }
+  nav {
+    width: 210px; flex-shrink: 0; padding: 18px 10px; position: sticky;
+    top: 61px; height: calc(100vh - 61px); overflow-y: auto;
+  }
+  nav button {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 12px 16px; margin-bottom: 4px; border: none; border-radius: 12px;
+    background: transparent; color: var(--texte2); font-size: 14.5px;
+    cursor: pointer; text-align: left; transition: background .15s, color .15s;
+  }
+  nav button:hover { background: var(--panneau2); color: var(--texte); }
+  nav button.actif { background: var(--panneau2); color: var(--texte); font-weight: 600; }
+  nav .ico { font-size: 18px; }
+  nav hr { border: none; border-top: 1px solid var(--bord); margin: 10px 6px; }
+  main { flex: 1; padding: 24px 28px 60px; max-width: 1500px; min-width: 0; }
+
+  /* ===== puces catégories ===== */
+  .puces { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 26px; }
+  .puces button {
+    padding: 9px 18px; border: 1px solid var(--bord); border-radius: 20px;
+    background: var(--panneau); color: var(--texte); cursor: pointer; font-size: 14px;
+    transition: transform .12s, border-color .12s, background .12s;
+  }
+  .puces button:hover { transform: translateY(-2px); border-color: var(--accent); background: var(--panneau2); }
+
+  h2.section { font-size: 19px; margin: 6px 0 16px; display: flex; align-items: center; gap: 10px; }
+  h2.section::after { content: ""; flex: 1; height: 1px; background: var(--bord); }
+
+  /* ===== grille / cartes ===== */
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 22px; }
+  .carte {
+    cursor: pointer; border-radius: var(--rayon); overflow: hidden; position: relative;
+    background: var(--panneau); border: 1px solid transparent;
+    transition: transform .18s, box-shadow .18s, border-color .18s;
+  }
+  .carte:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 34px rgba(0,0,0,.55), 0 0 0 1px rgba(255,61,90,.25);
+  }
+  .vignette { position: relative; aspect-ratio: 16/9; overflow: hidden; background: #000; }
+  .vignette img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
+  .carte:hover .vignette img { transform: scale(1.06); }
+  .duree {
+    position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.85);
+    padding: 2px 7px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  }
+  .tag-off {
+    position: absolute; top: 8px; left: 8px; background: var(--degrade);
+    padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  }
+  .carte .infos { padding: 12px 14px 14px; }
+  .carte h3 {
+    font-size: 14.5px; line-height: 1.4; font-weight: 600;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .carte p { font-size: 13px; color: var(--texte2); margin-top: 5px; }
+  .carte .actions-carte { position: absolute; top: 8px; right: 8px; display: none; gap: 6px; }
+  .carte:hover .actions-carte { display: flex; }
+  .actions-carte button {
+    border: none; background: rgba(0,0,0,.8); color: #fff; border-radius: 8px;
+    padding: 6px 8px; cursor: pointer; font-size: 13px;
+  }
+  .actions-carte button:hover { background: var(--accent); }
+  .barre-reprise { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--accent); }
+
+  /* squelettes de chargement */
+  .squelette { border-radius: var(--rayon); overflow: hidden; background: var(--panneau); }
+  .squelette .v { aspect-ratio: 16/9; }
+  .squelette .l1 { height: 14px; margin: 12px 14px 8px; border-radius: 7px; width: 85%; }
+  .squelette .l2 { height: 12px; margin: 0 14px 14px; border-radius: 6px; width: 50%; }
+  .squelette .v, .squelette .l1, .squelette .l2 {
+    background: linear-gradient(90deg, var(--panneau2) 25%, #2a2a3a 50%, var(--panneau2) 75%);
+    background-size: 200% 100%; animation: brille 1.3s infinite;
+  }
+  @keyframes brille { to { background-position: -200% 0; } }
+
+  .sentinelle { display: flex; justify-content: center; padding: 34px 0; }
+  .sentinelle .rond {
+    width: 34px; height: 34px; border: 4px solid var(--bord); border-top-color: var(--accent);
+    border-radius: 50%; animation: tourne .8s linear infinite;
+  }
+  .sentinelle.finie { display: none; }
+  @keyframes tourne { to { transform: rotate(360deg); } }
+
+  .info { text-align: center; color: var(--texte2); padding: 70px 20px; font-size: 16px; line-height: 2; }
+  .info b { color: var(--texte); }
+
+  /* ===== lecteur ===== */
+  #lecteur { display: none; max-width: 1150px; margin: 0 auto; }
+  #lecteur.cinema { max-width: none; }
+  .cadre-video {
+    border-radius: var(--rayon); overflow: hidden; background: #000;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  }
+  #video { width: 100%; max-height: 74vh; display: block; background: #000; }
+  #video::cue { background: rgba(0,0,0,.75); font-size: 1.05em; }
+  #lecteur h2 { margin: 16px 0 4px; font-size: 21px; line-height: 1.35; }
+  .sousLigne { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--texte2); font-size: 14px; margin-bottom: 14px; }
+  .sousLigne .q { color: var(--ok); font-weight: 700; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 18px; }
+  .actions > * {
+    padding: 10px 18px; border: 1px solid var(--bord); border-radius: 20px; cursor: pointer;
+    background: var(--panneau); color: var(--texte); font-size: 14px;
+    transition: background .15s, border-color .15s;
+  }
+  .actions > *:hover { background: var(--panneau2); border-color: var(--accent); }
+  .actions .principal { background: var(--degrade); border: none; font-weight: 700; }
+  .actions .principal:hover { filter: brightness(1.12); }
+  .actions .fini { background: var(--ok); color: #000; border: none; font-weight: 700; }
+  .actions .fav-actif { background: #b8860b; border: none; }
+  select { appearance: none; outline: none; }
+  .description {
+    background: var(--panneau); border: 1px solid var(--bord); padding: 16px 18px;
+    border-radius: var(--rayon); font-size: 14px; color: #ccc; white-space: pre-wrap;
+    max-height: 110px; overflow: hidden; cursor: pointer; position: relative;
+  }
+  .description.ouverte { max-height: none; }
+  .description::after {
+    content: "▼ plus"; position: absolute; bottom: 0; left: 0; right: 0; text-align: center;
+    padding: 22px 0 6px; font-size: 12px; color: var(--texte2);
+    background: linear-gradient(transparent, var(--panneau) 60%);
+  }
+  .description.ouverte::after { content: "▲ moins"; background: none; position: static; padding: 8px 0 0; display: block; }
+
+  /* téléchargements */
+  .liste-dl { display: flex; flex-direction: column; gap: 12px; }
+  .item-dl {
+    background: var(--panneau); border: 1px solid var(--bord); border-radius: var(--rayon);
+    padding: 14px 18px;
+  }
+  .item-dl .t { font-size: 14.5px; font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 10px; }
+  .item-dl .etat { color: var(--texte2); font-weight: 400; white-space: nowrap; }
+  .barre { height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+  .barre div { height: 100%; background: var(--degrade); border-radius: 4px; transition: width .5s; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--panneau2); border: 1px solid var(--bord); color: var(--texte);
+    padding: 12px 22px; border-radius: 24px; font-size: 14px; z-index: 50;
+    transition: transform .3s; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .toast.visible { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 900px) {
+    nav { display: none; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" onclick="allerAccueil()"><span class="d">Djess</span><span class="t">Tube</span></div>
+  <div class="recherche">
+    <input id="q" placeholder="Rechercher sur tout YouTube…" onkeydown="if(event.key==='Enter')chercher()">
+    <button onclick="chercher()">🔍</button>
+  </div>
+  <div class="badge-dl" id="badgeDl" onclick="allerVue('telechargements')">⬇️ …</div>
+</header>
+
+<div class="page">
+  <nav id="menu">
+    <button data-vue="accueil" class="actif" onclick="allerVue('accueil')"><span class="ico">🏠</span> Accueil</button>
+    <button data-vue="historique" onclick="allerVue('historique')"><span class="ico">🕘</span> Historique</button>
+    <button data-vue="favoris" onclick="allerVue('favoris')"><span class="ico">⭐</span> Favoris</button>
+    <hr>
+    <button data-vue="horsligne" onclick="allerVue('horsligne')"><span class="ico">📥</span> Hors ligne</button>
+    <button data-vue="telechargements" onclick="allerVue('telechargements')"><span class="ico">⬇️</span> Téléchargements</button>
+  </nav>
+
+  <main>
+    <div id="contenu"></div>
+
+    <div id="lecteur">
+      <div class="cadre-video"><video id="video" controls></video></div>
+      <h2 id="titre"></h2>
+      <div class="sousLigne" id="sousLigne"></div>
+      <div class="actions">
+        <button class="principal" id="btnDl" onclick="basculeMenuDl()">⬇️ Télécharger</button>
+        <select id="selQualite" style="display:none" onchange="lancerTelechargement()">
+          <option value="">Choisir la qualité…</option>
+          <option value="1080">🎬 Vidéo 1080p</option>
+          <option value="720">🎬 Vidéo 720p (plus léger)</option>
+          <option value="audio">🎵 Musique MP3</option>
+        </select>
+        <button id="btnFav" onclick="basculerFavori()">⭐ Favori</button>
+        <select id="selSubs" onchange="chargerSubs()"></select>
+        <select id="selVitesse" onchange="document.getElementById('video').playbackRate = parseFloat(this.value)">
+          <option value="0.5">0.5×</option><option value="0.75">0.75×</option>
+          <option value="1" selected>Vitesse 1×</option><option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option><option value="2">2×</option>
+        </select>
+        <button onclick="pip()">🗔 PiP</button>
+        <button id="btnCinema" onclick="cinema()">🎦 Cinéma</button>
+        <button onclick="copierLien()">🔗 Copier le lien</button>
+        <button onclick="retour()">← Retour</button>
+      </div>
+      <div class="description" id="description" onclick="this.classList.toggle('ouverte')"></div>
+      <div id="similaires"></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= état global ================= */
+let videoActuelle = null;
+let vueActuelle = "accueil";
+let audioHD = null, syncTimer = null, posTimer = null;
+
+const CATEGORIES = [
+  ["🔥 Tendances", "tendances populaires france"],
+  ["🎵 Musique", "musique hits 2026"],
+  ["🎮 Gaming", "gaming let's play fr"],
+  ["⚽ Sport", "football résumé"],
+  ["😂 Humour", "humour sketch fr"],
+  ["🎬 Films", "bande annonce film 2026"],
+  ["🔬 Science", "documentaire science fr"],
+  ["🍳 Cuisine", "recette cuisine facile"],
+  ["📰 Actu", "actualités du jour"],
+];
+
+const store = {
+  get(k, def) { try { return JSON.parse(localStorage.getItem("djess_" + k)) ?? def; } catch { return def; } },
+  set(k, v) { localStorage.setItem("djess_" + k, JSON.stringify(v)); },
+};
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("visible");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("visible"), 2600);
+}
+
+/* ================= formats ================= */
+function fmtDuree(s) {
+  if (!s) return "";
+  s = Math.round(s);
+  const h = Math.floor(s/3600), m = Math.floor(s%3600/60), sec = s%60;
+  return (h ? h+":"+String(m).padStart(2,"0") : m) + ":" + String(sec).padStart(2,"0");
+}
+function fmtVues(v) {
+  if (!v) return "";
+  if (v >= 1e6) return (v/1e6).toFixed(1).replace(".0","") + " M de vues";
+  if (v >= 1e3) return Math.round(v/1e3) + " k vues";
+  return v + " vues";
+}
+function fmtCompact(v) {
+  if (!v) return "";
+  if (v >= 1e6) return (v/1e6).toFixed(1).replace(".0","") + " M";
+  if (v >= 1e3) return Math.round(v/1e3) + " k";
+  return "" + v;
+}
+function fmtTaille(o) {
+  if (!o) return "";
+  if (o >= 1e9) return (o/1e9).toFixed(2) + " Go";
+  if (o >= 1e6) return Math.round(o/1e6) + " Mo";
+  return Math.round(o/1e3) + " ko";
+}
+
+/* ================= navigation ================= */
+function allerVue(vue) {
+  vueActuelle = vue;
+  infiniSauvegarde = null;
+  arreterInfini();
+  retour();
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("actif", b.dataset.vue === vue));
+  if (vue === "accueil") afficherAccueil();
+  else if (vue === "historique") afficherHistorique();
+  else if (vue === "favoris") afficherFavoris();
+  else if (vue === "horsligne") afficherHorsLigne();
+  else if (vue === "telechargements") afficherTelechargements();
+}
+function allerAccueil() { document.getElementById("q").value = ""; allerVue("accueil"); }
+
+function squelettes(n = 8) {
+  return '<div class="grille">' + Array(n).fill(
+    '<div class="squelette"><div class="v"></div><div class="l1"></div><div class="l2"></div></div>'
+  ).join("") + "</div>";
+}
+
+/* ================= accueil ================= */
+function afficherAccueil() {
+  const c = document.getElementById("contenu");
+  const reprise = store.get("historique", []).filter(h => h.pos > 10 && h.duree && h.pos < h.duree * 0.95).slice(0, 4);
+  c.innerHTML =
+    '<div class="puces">' + CATEGORIES.map(([nom], i) =>
+      `<button onclick="chercherCategorie(${i})">${nom}</button>`).join("") + "</div>" +
+    (reprise.length ? '<h2 class="section">▶️ Reprendre la lecture</h2><div class="grille" id="grReprise"></div>' : "") +
+    gabaritInfini("✨ Découvrir — fais défiler, c'est infini");
+  if (reprise.length) rendreCartes(document.getElementById("grReprise"), reprise, { reprise: true });
+
+  // flux infini : mélange des catégories + centres d'intérêt tirés de l'historique
+  const graines = CATEGORIES.map(cat => cat[1]);
+  for (const h of store.get("historique", []).slice(0, 6)) {
+    const mots = motsCles(h.titre, 3).join(" ");
+    if (mots) graines.push(mots);
+    if (h.chaine) graines.push(h.chaine);
+  }
+  graines.sort(() => Math.random() - 0.5);
+  const grilles = c.querySelectorAll(".grille");
+  const grille = grilles[grilles.length - 1];
+  demarrerInfini(
+    grille,
+    page => fetchRecherche(graines[page % graines.length], Math.floor(page / graines.length), 12),
+    c.querySelector(".sentinelle"),
+  );
+}
+function chercherCategorie(i) {
+  document.getElementById("q").value = CATEGORIES[i][1];
+  chercher();
+}
+
+/* ================= recherche ================= */
+async function chercher() {
+  const q = document.getElementById("q").value.trim();
+  if (!q) return;
+  retour();
+  document.querySelectorAll("nav button").forEach(b => b.classList.remove("actif"));
+  const c = document.getElementById("contenu");
+  c.innerHTML = gabaritInfini('🔍 Résultats pour « ' + q.replace(/</g, "&lt;") + ' » — défilement infini');
+  demarrerInfini(
+    c.querySelector(".grille"),
+    page => fetchRecherche(q, page),
+    c.querySelector(".sentinelle"),
+  );
+}
+
+/* ================= cartes ================= */
+function rendreCartes(conteneur, items, opts = {}) {
+  conteneur.innerHTML = "";
+  for (const v of items) {
+    const carte = document.createElement("div");
+    carte.className = "carte";
+    const pct = opts.reprise && v.duree ? Math.min(100, v.pos / v.duree * 100) : 0;
+    carte.innerHTML = `
+      <div class="vignette">
+        <img src="${v.miniature || (v.id ? 'https://i.ytimg.com/vi/' + v.id + '/mqdefault.jpg' : '')}" loading="lazy"
+             onerror="this.style.opacity=0">
+        ${v.duree ? `<span class="duree">${fmtDuree(v.duree)}</span>` : ""}
+        ${pct ? `<div class="barre-reprise" style="width:${pct}%"></div>` : ""}
+      </div>
+      <div class="infos">
+        <h3></h3>
+        <p>${(v.chaine || "").replace(/</g, "&lt;")}${v.vues ? " · " + fmtVues(v.vues) : ""}</p>
+      </div>`;
+    carte.querySelector("h3").textContent = v.titre || "";
+    carte.onclick = () => lire(v);
+    conteneur.appendChild(carte);
+  }
+  if (!items.length && !opts.ajouter) conteneur.innerHTML = '<div class="info">Rien ici pour l\'instant.</div>';
+}
+
+/* ============ défilement infini ============ */
+/* infini.chargeur(page) doit renvoyer une liste de vidéos ; vide = fin. */
+let infini = null;
+let observateur = null;
+let infiniSauvegarde = null;   // pour reprendre la liste au retour d'une vidéo
+
+function arreterInfini() {
+  if (observateur) { observateur.disconnect(); observateur = null; }
+  infini = null;
+}
+
+function _observer() {
+  observateur = new IntersectionObserver(entries => {
+    if (entries.some(e => e.isIntersecting)) chargerPageSuivante();
+  }, { rootMargin: "900px" });
+  observateur.observe(infini.sentinelle);
+}
+
+function demarrerInfini(grille, chargeur, sentinelle) {
+  arreterInfini();
+  infini = { grille, chargeur, sentinelle, page: 0, ids: new Set(), enCours: false, vides: 0 };
+  _observer();
+  chargerPageSuivante();
+}
+
+function reprendreInfini(etat) {
+  arreterInfini();
+  etat.enCours = false;
+  infini = etat;
+  _observer();
+}
+
+async function chargerPageSuivante() {
+  const etat = infini;
+  if (!etat || etat.enCours) return;
+  etat.enCours = true;
+  try {
+    const items = await etat.chargeur(etat.page);
+    if (etat !== infini) return;                 // la vue a changé entre-temps
+    const nouveaux = items.filter(v => v.id && !etat.ids.has(v.id));
+    nouveaux.forEach(v => etat.ids.add(v.id));
+    etat.page++;
+    if (nouveaux.length) {
+      etat.vides = 0;
+      ajouterCartes(etat.grille, nouveaux);
+    } else if (++etat.vides >= 3) {              // 3 pages vides d'affilée = fin
+      etat.sentinelle.classList.add("finie");
+      observateur && observateur.disconnect();
+      return;
+    }
+    // si l'écran n'est pas rempli, on continue tout de suite
+    etat.enCours = false;
+    if (etat.sentinelle.getBoundingClientRect().top < innerHeight + 900 && etat.page < 50)
+      chargerPageSuivante();
+    return;
+  } catch {}
+  if (etat === infini) etat.enCours = false;
+}
+
+function ajouterCartes(grille, items) {
+  const tmp = document.createElement("div");
+  rendreCartes(tmp, items, { ajouter: true });
+  while (tmp.firstChild) grille.appendChild(tmp.firstChild);
+}
+
+function gabaritInfini(titreSection) {
+  return `<h2 class="section">${titreSection}</h2><div class="grille"></div>
+          <div class="sentinelle"><div class="rond"></div></div>`;
+}
+
+async function fetchRecherche(q, page = 0, n = 20) {
+  const r = await fetch(`/api/recherche?q=${encodeURIComponent(q)}&page=${page}&n=${n}`);
+  return r.json();
+}
+
+/* mots-clés d'un titre (pour les suggestions par sujet) */
+const STOP = new Set(("le la les un une des du de et ou en au aux dans sur pour avec sans est sont ce cette ça mon ma mes " +
+  "the a an of and or in on for with is are this that my to i you it be was how what why " +
+  "ft feat vs official officiel video clip hd 4k vf vostfr episode ep").split(" "));
+function motsCles(titre, max = 4) {
+  return (titre || "").toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(m => m.length > 2 && !STOP.has(m) && !/^\d+$/.test(m))
+    .slice(0, max);
+}
+
+/* ================= historique & favoris ================= */
+function ajouterHistorique(v) {
+  let h = store.get("historique", []).filter(x => x.id !== v.id);
+  h.unshift({ id: v.id, titre: v.titre, chaine: v.chaine, duree: v.duree || 0, pos: 0, ts: Date.now() });
+  store.set("historique", h.slice(0, 100));
+}
+function majPosition(id, pos, duree) {
+  const h = store.get("historique", []);
+  const e = h.find(x => x.id === id);
+  if (e) { e.pos = pos; if (duree) e.duree = duree; store.set("historique", h); }
+}
+function afficherHistorique() {
+  const c = document.getElementById("contenu");
+  const h = store.get("historique", []);
+  c.innerHTML = '<h2 class="section">🕘 Historique</h2>' +
+    (h.length ? '<div class="puces"><button onclick="viderHistorique()">🗑️ Vider l\'historique</button></div><div class="grille"></div>'
+              : '<div class="info">Aucune vidéo regardée pour l\'instant.</div>');
+  if (h.length) rendreCartes(c.querySelector(".grille"), h, { reprise: true });
+}
+function viderHistorique() { store.set("historique", []); afficherHistorique(); toast("Historique vidé"); }
+
+function estFavori(id) { return store.get("favoris", []).some(f => f.id === id); }
+function basculerFavori() {
+  if (!videoActuelle) return;
+  let favs = store.get("favoris", []);
+  if (estFavori(videoActuelle.id)) {
+    favs = favs.filter(f => f.id !== videoActuelle.id);
+    toast("Retiré des favoris");
+  } else {
+    favs.unshift({ id: videoActuelle.id, titre: videoActuelle.titre, chaine: videoActuelle.chaine, duree: videoActuelle.duree });
+    toast("⭐ Ajouté aux favoris");
+  }
+  store.set("favoris", favs);
+  majBoutonFavori();
+}
+function majBoutonFavori() {
+  const b = document.getElementById("btnFav");
+  const actif = videoActuelle && estFavori(videoActuelle.id);
+  b.classList.toggle("fav-actif", actif);
+  b.textContent = actif ? "⭐ Dans les favoris" : "⭐ Favori";
+}
+function afficherFavoris() {
+  const c = document.getElementById("contenu");
+  const favs = store.get("favoris", []);
+  c.innerHTML = '<h2 class="section">⭐ Favoris</h2>' +
+    (favs.length ? '<div class="grille"></div>' : '<div class="info">Aucun favori.<br>Pendant une lecture, clique sur <b>⭐ Favori</b>.</div>');
+  if (favs.length) rendreCartes(c.querySelector(".grille"), favs);
+}
+
+/* ================= lecteur ================= */
+function arreterAudioHD() {
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
+  if (audioHD) { audioHD.pause(); audioHD.src = ""; audioHD = null; }
+}
+function lireHD(video, urlVideo, urlAudio) {
+  arreterAudioHD();
+  video.src = urlVideo;
+  audioHD = new Audio(urlAudio);
+  const sync = () => { if (audioHD && Math.abs(audioHD.currentTime - video.currentTime) > 0.3) audioHD.currentTime = video.currentTime; };
+  video.onplay = () => { if (audioHD) { sync(); audioHD.play(); } };
+  video.onpause = () => audioHD && audioHD.pause();
+  video.onseeking = sync;
+  video.onratechange = () => { if (audioHD) audioHD.playbackRate = video.playbackRate; };
+  video.onvolumechange = () => { if (audioHD) { audioHD.volume = video.volume; audioHD.muted = video.muted; } };
+  video.onwaiting = () => audioHD && audioHD.pause();
+  video.onplaying = () => { if (audioHD) { sync(); audioHD.play(); } };
+  syncTimer = setInterval(() => { if (audioHD && !video.paused) sync(); }, 2000);
+}
+
+async function lire(item) {
+  if (infini && document.getElementById("contenu").contains(infini.grille)) infiniSauvegarde = infini;
+  arreterInfini();
+  document.getElementById("contenu").style.display = "none";
+  const lecteur = document.getElementById("lecteur");
+  lecteur.style.display = "block";
+  window.scrollTo(0, 0);
+  if (item.fichier) return lireLocal(item);   // vidéo hors ligne
+
+  document.getElementById("titre").textContent = item.titre || "Chargement…";
+  document.getElementById("sousLigne").innerHTML = "⏳ chargement du flux sans pub…";
+  document.getElementById("description").textContent = "";
+  document.getElementById("similaires").innerHTML = "";
+  document.getElementById("btnDl").style.display = "";
+  reinitBoutonDl();
+
+  const r = await fetch("/api/video/" + item.id);
+  const v = await r.json();
+  if (v.erreur) { document.getElementById("titre").textContent = "⚠️ " + v.erreur; return; }
+  videoActuelle = v;
+  ajouterHistorique(v);
+  majBoutonFavori();
+
+  document.getElementById("titre").textContent = v.titre;
+  const q = v.flux_audio ? v.qualite_hd : v.qualite;
+  document.getElementById("sousLigne").innerHTML =
+    `<span>${(v.chaine || "").replace(/</g, "&lt;")}</span>` +
+    (v.vues ? `<span>👁 ${fmtVues(v.vues)}</span>` : "") +
+    (v.likes ? `<span>👍 ${fmtCompact(v.likes)}</span>` : "") +
+    (q ? `<span class="q">✅ ${q} · sans pub</span>` : "");
+  document.getElementById("description").textContent = v.description || "";
+  document.getElementById("description").classList.remove("ouverte");
+
+  const video = document.getElementById("video");
+  [...video.querySelectorAll("track")].forEach(t => t.remove());
+  if (v.flux_video && v.flux_audio) lireHD(video, v.flux_video, v.flux_audio);
+  else { arreterAudioHD(); video.src = v.flux || ""; }
+  video.playbackRate = 1;
+  document.getElementById("selVitesse").value = "1";
+
+  // reprise de lecture
+  const hist = store.get("historique", []).find(x => x.id === v.id);
+  if (hist && hist.pos > 10 && hist.pos < (hist.duree || 1e9) * 0.95) {
+    video.currentTime = hist.pos;
+    toast("▶️ Reprise à " + fmtDuree(hist.pos));
+  }
+  video.play().catch(() => {});
+  clearInterval(posTimer);
+  posTimer = setInterval(() => { if (!video.paused) majPosition(v.id, video.currentTime, video.duration); }, 3000);
+
+  // menu sous-titres
+  const sel = document.getElementById("selSubs");
+  sel.onchange = chargerSubs;
+  let opts = '<option value="">💬 Sous-titres : non</option>';
+  const langs = Object.keys(v.sous_titres || {});
+  if (langs.includes("fr")) opts += '<option value="fr|0">🇫🇷 Français</option>';
+  const populaires = ["en", "es", "ar", "de", "it", "pt", "ja", "ko", "tr", "ru"];
+  const autres = langs.filter(l => l !== "fr").sort((a, b) => {
+    const ia = populaires.indexOf(a), ib = populaires.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  }).slice(0, 12);
+  for (const l of autres) {
+    opts += `<option value="${l}|0">${l.toUpperCase()}</option>`;
+    opts += `<option value="${l}|1">${l.toUpperCase()} → 🇫🇷 traduit</option>`;
+  }
+  sel.innerHTML = opts;
+
+  chargerSimilaires(v);
+  suivreTelechargements();
+}
+
+let compteurSubs = 0;
+async function chargerSubs() {
+  const video = document.getElementById("video");
+  [...video.querySelectorAll("track")].forEach(t => t.remove());
+  const val = document.getElementById("selSubs").value;
+  if (!val || !videoActuelle) return;
+  const [lang, traduire] = val.split("|");
+  const jeton = ++compteurSubs;
+  if (traduire === "1") toast("⏳ Traduction en cours… (instantané dès la 2e fois)");
+  // préchargé via fetch pour ne PAS toucher à la vidéo pendant la préparation
+  try {
+    const r = await fetch(`/api/soustitres/${videoActuelle.id}?lang=${lang}&traduire=${traduire}`);
+    const vtt = await r.text();
+    if (jeton !== compteurSubs) return;   // l'utilisateur a changé entre-temps
+    const blob = URL.createObjectURL(new Blob([vtt], { type: "text/vtt" }));
+    const track = document.createElement("track");
+    track.kind = "subtitles";
+    track.label = traduire === "1" ? "Français (traduit)" : lang;
+    track.src = blob;
+    track.default = true;
+    video.appendChild(track);
+    track.addEventListener("load", () => { track.track.mode = "showing"; });
+    if (traduire === "1") toast("✅ Sous-titres traduits activés");
+  } catch {
+    toast("⚠️ Sous-titres indisponibles");
+  }
+}
+
+function chargerSimilaires(v) {
+  /* graines variées : même chaîne, même sujet, même univers — pas juste le même titre */
+  const mots = motsCles(v.titre, 4);
+  const graines = [];
+  if (v.chaine) graines.push(v.chaine);                                  // même youtubeur
+  if (mots.length) graines.push(mots.join(" "));                         // même sujet
+  if (v.chaine && mots.length) graines.push(v.chaine + " " + mots[0]);   // le youtubeur sur ce sujet
+  if (mots.length >= 2) graines.push(mots.slice(0, 2).join(" ") + " similaire");
+  if (mots.length) graines.push("vidéos comme " + mots.slice(0, 3).join(" "));  // même univers
+  if (!graines.length) return;
+
+  const zone = document.getElementById("similaires");
+  zone.innerHTML = '<h2 class="section" style="margin-top:26px">🎬 Suggestions — même chaîne, même univers</h2>' +
+    '<div class="grille"></div><div class="sentinelle"><div class="rond"></div></div>';
+  demarrerInfini(
+    zone.querySelector(".grille"),
+    async page => {
+      const graine = graines[page % graines.length];
+      const items = await fetchRecherche(graine, Math.floor(page / graines.length), 12);
+      return items.filter(x => x.id !== v.id);
+    },
+    zone.querySelector(".sentinelle"),
+  );
+}
+
+/* ---- lecture hors ligne ---- */
+function lireLocal(v) {
+  videoActuelle = null;
+  clearInterval(posTimer);
+  arreterAudioHD();
+  document.getElementById("titre").textContent = v.titre;
+  document.getElementById("sousLigne").innerHTML = '<span class="q">📥 hors ligne · aucune connexion requise</span>' +
+    (v.taille ? `<span>${fmtTaille(v.taille)}</span>` : "");
+  document.getElementById("description").textContent = "";
+  document.getElementById("similaires").innerHTML = "";
+  document.getElementById("btnDl").style.display = "none";
+  document.getElementById("selQualite").style.display = "none";
+  const video = document.getElementById("video");
+  [...video.querySelectorAll("track")].forEach(t => t.remove());
+  video.onplay = video.onpause = video.onseeking = video.onwaiting = video.onplaying = null;
+  video.src = "/api/fichier/" + encodeURIComponent(v.fichier);
+  video.play().catch(() => {});
+  const sel = document.getElementById("selSubs");
+  if (v.id && !v.audio) {
+    sel.innerHTML = '<option value="">💬 Sous-titres : non</option><option value="local">📥 Sous-titres téléchargés</option>';
+    sel.onchange = () => {
+      [...video.querySelectorAll("track")].forEach(t => t.remove());
+      if (sel.value === "local") {
+        const track = document.createElement("track");
+        track.kind = "subtitles"; track.label = "téléchargés"; track.default = true;
+        track.src = "/api/soustitres-locaux/" + v.id;
+        video.appendChild(track);
+        track.addEventListener("load", () => { track.track.mode = "showing"; });
+      }
+    };
+  } else {
+    sel.innerHTML = '<option value="">💬 —</option>';
+  }
+}
+
+function retour() {
+  document.getElementById("lecteur").style.display = "none";
+  document.getElementById("lecteur").classList.remove("cinema");
+  arreterAudioHD();
+  clearInterval(posTimer);
+  const video = document.getElementById("video");
+  video.pause();
+  video.removeAttribute("src");
+  document.getElementById("selSubs").onchange = chargerSubs;
+  document.getElementById("contenu").style.display = "block";
+  if (infiniSauvegarde && document.getElementById("contenu").contains(infiniSauvegarde.grille)) {
+    reprendreInfini(infiniSauvegarde);
+    infiniSauvegarde = null;
+  }
+}
+
+/* ---- boutons lecteur ---- */
+function pip() {
+  const v = document.getElementById("video");
+  if (document.pictureInPictureElement) document.exitPictureInPicture();
+  else v.requestPictureInPicture().catch(() => toast("PiP non disponible"));
+}
+function cinema() {
+  document.getElementById("lecteur").classList.toggle("cinema");
+  window.scrollTo(0, 0);
+}
+function copierLien() {
+  if (!videoActuelle) return;
+  navigator.clipboard.writeText("https://www.youtube.com/watch?v=" + videoActuelle.id)
+    .then(() => toast("🔗 Lien copié !"));
+}
+
+/* ================= téléchargements ================= */
+function reinitBoutonDl() {
+  const b = document.getElementById("btnDl");
+  b.textContent = "⬇️ Télécharger"; b.className = "principal";
+  document.getElementById("selQualite").style.display = "none";
+  document.getElementById("selQualite").value = "";
+}
+function basculeMenuDl() {
+  const s = document.getElementById("selQualite");
+  s.style.display = s.style.display === "none" ? "" : "none";
+}
+async function lancerTelechargement() {
+  const q = document.getElementById("selQualite").value;
+  if (!q || !videoActuelle) return;
+  document.getElementById("selQualite").style.display = "none";
+  await fetch("/api/telecharger/" + videoActuelle.id, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ qualite: q, titre: videoActuelle.titre }),
+  });
+  toast(q === "audio" ? "🎵 Extraction MP3 lancée" : `🎬 Téléchargement ${q}p lancé`);
+  suivreTelechargements();
+}
+
+let timerDl = null;
+function suivreTelechargements() {
+  if (timerDl) return;
+  timerDl = setInterval(async () => {
+    try {
+      const dls = await (await fetch("/api/telechargements")).json();
+      const actifs = Object.values(dls).filter(d => d.etat === "en cours");
+      const badge = document.getElementById("badgeDl");
+      badge.classList.toggle("actif", actifs.length > 0);
+      if (actifs.length) {
+        badge.textContent = `⬇️ ${actifs.length} en cours · ${Math.round(actifs[0].pct)}%`;
+      } else {
+        clearInterval(timerDl); timerDl = null;
+      }
+      // bouton du lecteur
+      if (videoActuelle && dls[videoActuelle.id]) {
+        const d = dls[videoActuelle.id], b = document.getElementById("btnDl");
+        if (d.etat === "en cours") { b.textContent = `⬇️ ${Math.round(d.pct)} %…`; b.className = "principal"; }
+        else if (d.etat === "terminé") { b.textContent = "✅ Dispo hors ligne"; b.className = "fini"; }
+        else if (d.etat === "erreur") { b.textContent = "❌ Erreur — réessayer"; b.className = "principal"; }
+      }
+      if (vueActuelle === "telechargements" && document.getElementById("lecteur").style.display !== "block")
+        rendreListeDl(dls);
+    } catch {}
+  }, 1200);
+}
+
+function rendreListeDl(dls) {
+  const c = document.getElementById("contenu");
+  const entrees = Object.entries(dls);
+  c.innerHTML = '<h2 class="section">⬇️ Téléchargements</h2>' +
+    (entrees.length ? '<div class="liste-dl">' + entrees.map(([id, d]) => `
+      <div class="item-dl">
+        <div class="t"><span>${d.qualite === "audio" ? "🎵" : "🎬"} ${(d.titre || id).replace(/</g, "&lt;")}</span>
+          <span class="etat">${d.etat === "en cours" ? Math.round(d.pct) + " %" : d.etat === "terminé" ? "✅ terminé" : "❌ erreur"}</span></div>
+        <div class="barre"><div style="width:${d.pct}%"></div></div>
+      </div>`).join("") + "</div>"
+    : '<div class="info">Aucun téléchargement pour cette session.<br>Pendant une lecture, clique sur <b>⬇️ Télécharger</b> et choisis la qualité (ou 🎵 MP3 pour la musique).</div>');
+}
+
+async function afficherTelechargements() {
+  try {
+    const dls = await (await fetch("/api/telechargements")).json();
+    rendreListeDl(dls);
+    if (Object.values(dls).some(d => d.etat === "en cours")) suivreTelechargements();
+  } catch {
+    document.getElementById("contenu").innerHTML = '<div class="info">Serveur injoignable.</div>';
+  }
+}
+
+/* ================= hors ligne ================= */
+async function afficherHorsLigne() {
+  const c = document.getElementById("contenu");
+  c.innerHTML = '<h2 class="section">📥 Hors ligne</h2>' + squelettes(4);
+  const list = await (await fetch("/api/bibliotheque")).json();
+  c.innerHTML = '<h2 class="section">📥 Hors ligne — regardable sans Internet</h2>' +
+    (list.length ? '<div class="grille"></div>'
+     : '<div class="info">Rien de téléchargé pour l\'instant.<br>Pendant une lecture, clique sur <b>⬇️ Télécharger</b>.</div>');
+  if (!list.length) return;
+  const g = c.querySelector(".grille");
+  for (const v of list) {
+    const carte = document.createElement("div");
+    carte.className = "carte";
+    carte.innerHTML = `
+      <div class="vignette">
+        <img src="${v.id ? 'https://i.ytimg.com/vi/' + v.id + '/mqdefault.jpg' : ''}" loading="lazy" onerror="this.style.opacity=0">
+        <span class="tag-off">${v.audio ? "🎵 MP3" : "📥 vidéo"}</span>
+        <span class="duree">${fmtTaille(v.taille)}</span>
+        <div class="actions-carte"><button title="Supprimer">🗑️</button></div>
+      </div>
+      <div class="infos"><h3></h3><p>${v.audio ? "Musique" : "Vidéo"} téléchargée</p></div>`;
+    carte.querySelector("h3").textContent = v.titre;
+    carte.querySelector(".actions-carte button").onclick = (e) => { e.stopPropagation(); supprimerFichier(v.fichier); };
+    carte.onclick = () => lire(v);
+    g.appendChild(carte);
+  }
+}
+async function supprimerFichier(fichier) {
+  if (!confirm("Supprimer « " + fichier + " » ?")) return;
+  await fetch("/api/supprimer", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fichier }),
+  });
+  toast("🗑️ Supprimé");
+  afficherHorsLigne();
+}
+
+/* ================= raccourcis clavier ================= */
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (document.getElementById("lecteur").style.display !== "block") return;
+  const video = document.getElementById("video");
+  if (e.code === "Space") { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+  else if (e.key === "ArrowRight") video.currentTime += 5;
+  else if (e.key === "ArrowLeft") video.currentTime -= 5;
+  else if (e.key.toLowerCase() === "f") video.requestFullscreen().catch(() => {});
+  else if (e.key.toLowerCase() === "m") video.muted = !video.muted;
+});
+
+/* ================= démarrage ================= */
+allerVue("accueil");
+suivreTelechargements();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+DjessTube -> http://localhost:8765
+ * Serving Flask app 'server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:8765
+Press CTRL+C to quit
+127.0.0.1 - - [20/Jul/2026 18:39:05] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:39:09] "GET /api/telechargements HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:39:10] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [20/Jul/2026 18:39:42] "GET /api/recherche?q=\U0001d5d6\U0001d606\U0001d5ff\U0001d5f2\U0001d5fb\U0001d5f6\U0001d5f6&page=0&n=12 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:39:48] "GET /api/recherche?q=tendances%20populaires%20france&page=0&n=12 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:40:34] "GET /api/recherche?q=phonk&page=0&n=20 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:40:42] "GET /api/recherche?q=phonk&page=1&n=20 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:43:00] "GET /api/recherche?q=x-cool&page=0&n=20 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:43:05] "GET /api/recherche?q=x-cool&page=1&n=20 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:07] "GET /api/video/YNsfnUbHcwQ HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:08] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [20/Jul/2026 18:44:08] "GET /api/telechargements HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:13] "GET /api/recherche?q=tienanh109%20prod.&page=0&n=12 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:27] "GET /api/telechargements HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:28] "GET /api/bibliotheque HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:35] "GET /api/recherche?q=tienanh109%20prod.&page=0&n=12 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:40] "GET /api/recherche?q=bande%20annonce%20film%202026&page=0&n=12 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:44] "GET /api/video/YNsfnUbHcwQ HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:45] "GET /api/telechargements HTTP/1.1" 200 -
+127.0.0.1 - - [20/Jul/2026 18:44:51] "GET /api/recherche?q=tienanh109%20prod.&page=0&n=12 HTTP/1.1" 200 -
