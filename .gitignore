@@ -1,0 +1,7 @@
+# fichiers créés pendant l'utilisation (ils n'ont rien à faire sur GitHub)
+telechargements/
+cache_soustitres/
+__pycache__/
+*.pyc
+.venv/
+venv/

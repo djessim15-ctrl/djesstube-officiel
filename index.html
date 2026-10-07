@@ -155,6 +155,39 @@
   .info { text-align: center; color: var(--texte2); padding: 70px 20px; font-size: 16px; line-height: 2; }
   .info b { color: var(--texte); }
 
+  /* ===== erreurs : on affiche toujours quelque chose au lieu de tourner pour rien ===== */
+  .bloc-erreur {
+    background: var(--panneau); border: 1px solid var(--bord); border-left: 4px solid var(--accent);
+    border-radius: var(--rayon); padding: 20px 22px; font-size: 14.5px; line-height: 1.65;
+    color: var(--texte); text-align: left; max-width: 720px; margin: 8px auto;
+  }
+  .bloc-erreur .msg { margin-bottom: 14px; }
+  .bloc-erreur .aide { color: var(--texte2); font-size: 13.5px; margin-top: 8px; }
+  .bloc-erreur code {
+    background: rgba(0,0,0,.45); border: 1px solid var(--bord);
+    padding: 1px 7px; border-radius: 6px; font-size: 13px; color: #ffd479;
+  }
+  .actions-erreur { display: flex; gap: 10px; flex-wrap: wrap; }
+  .actions-erreur button {
+    padding: 9px 18px; border: 1px solid var(--bord); border-radius: 20px; cursor: pointer;
+    background: var(--panneau2); color: var(--texte); font-size: 14px;
+  }
+  .actions-erreur button:hover { border-color: var(--accent); }
+
+  /* bandeau d'avertissement global (yt-dlp manquant, etc.) */
+  #banniere {
+    display: none; align-items: flex-start; gap: 12px; margin: 14px 24px 0;
+    padding: 13px 18px; border-radius: 12px; font-size: 14px; line-height: 1.6;
+    background: rgba(255,61,90,.12); border: 1px solid var(--accent); color: var(--texte);
+  }
+  #banniere.visible { display: flex; }
+  #banniere code { background: rgba(0,0,0,.45); padding: 1px 7px; border-radius: 6px; color: #ffd479; }
+  #banniere .fermer {
+    margin-left: auto; background: none; border: none; color: var(--texte2);
+    font-size: 16px; cursor: pointer; line-height: 1;
+  }
+  #banniere .fermer:hover { color: var(--texte); }
+
   /* ===== lecteur ===== */
   #lecteur { display: none; max-width: 1150px; margin: 0 auto; }
   #lecteur.cinema { max-width: none; }
@@ -226,6 +259,13 @@
   </div>
   <div class="badge-dl" id="badgeDl" onclick="allerVue('telechargements')">⬇️ …</div>
 </header>
+
+<div id="banniere">
+  <span>⚠️</span>
+  <div class="texte"></div>
+  <button class="fermer" title="Masquer"
+          onclick="document.getElementById('banniere').classList.remove('visible')">✕</button>
+</div>
 
 <div class="page">
   <nav id="menu">
@@ -299,6 +339,67 @@ function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("visible");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("visible"), 2600);
+}
+
+/* ================= appels réseau robustes =================
+   Avant : fetch() sans vérification. Si Flask renvoyait une page d'erreur HTML
+   (yt-dlp absent, plantage…), r.json() échouait et le chargement ne s'arrêtait
+   jamais. Maintenant : délai maximum + lecture en texte + message clair. */
+async function requete(url, { delai = 100000, methode = "GET", corps = null } = {}) {
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), delai);
+  let r;
+  try {
+    r = await fetch(url, {
+      method: methode,
+      signal: ctrl.signal,
+      headers: corps ? { "Content-Type": "application/json" } : undefined,
+      body: corps ? JSON.stringify(corps) : undefined,
+    });
+  } catch (e) {
+    clearTimeout(minuteur);
+    throw new Error(e && e.name === "AbortError"
+      ? `Le serveur n'a pas répondu en ${Math.round(delai / 1000)} s (yt-dlp bloqué ?).`
+      : "Serveur injoignable — vérifie que la fenêtre noire de DjessTube est bien ouverte.");
+  }
+  clearTimeout(minuteur);
+  return { ok: r.ok, status: r.status, entetes: r.headers, texte: await r.text() };
+}
+
+async function apiJSON(url, opts) {
+  const r = await requete(url, opts);
+  let data = null;
+  try { data = r.texte ? JSON.parse(r.texte) : null; } catch { }
+  if (!r.ok) {
+    const err = new Error((data && data.erreur) || `Erreur serveur (${r.status}).`);
+    err.code = (data && data.code) || "http";
+    throw err;
+  }
+  if (data === null) throw new Error("Réponse illisible du serveur.");
+  return data;
+}
+
+function echapper(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+/* Bloc d'erreur affiché à la place du rond de chargement */
+function blocErreur(message, boutons = "", aide = "") {
+  return `<div class="bloc-erreur">
+      <div class="msg">⚠️ ${echapper(message)}</div>
+      ${aide ? `<div class="aide">${aide}</div>` : ""}
+      ${boutons ? `<div class="actions-erreur" style="margin-top:14px">${boutons}</div>` : ""}
+    </div>`;
+}
+
+const AIDE_YTDLP = "Tape <code>pip install -U yt-dlp</code> dans une invite de commandes, " +
+  "puis relance DjessTube (fichier « LANCER DjessTube.bat »).";
+
+function montrerBanniere(html) {
+  const b = document.getElementById("banniere");
+  b.querySelector(".texte").innerHTML = html;
+  b.classList.add("visible");
 }
 
 /* ================= formats ================= */
@@ -392,6 +493,8 @@ async function chercher() {
     c.querySelector(".grille"),
     page => fetchRecherche(q, page),
     c.querySelector(".sentinelle"),
+    { videMessage: `Aucun résultat pour « ${q} ». Vérifie l'orthographe ou essaie d'autres mots.`,
+      videAide: "" },
   );
 }
 
@@ -438,9 +541,13 @@ function _observer() {
   observateur.observe(infini.sentinelle);
 }
 
-function demarrerInfini(grille, chargeur, sentinelle) {
+function demarrerInfini(grille, chargeur, sentinelle, options = {}) {
   arreterInfini();
-  infini = { grille, chargeur, sentinelle, page: 0, ids: new Set(), enCours: false, vides: 0 };
+  infini = { grille, chargeur, sentinelle, page: 0, ids: new Set(), enCours: false, vides: 0,
+             videMessage: options.videMessage || "Rien n'a pu être chargé.",
+             videAide: options.videAide !== undefined ? options.videAide : AIDE_YTDLP };
+  sentinelle.classList.remove("finie", "erreur");
+  sentinelle.innerHTML = '<div class="rond"></div>';
   _observer();
   chargerPageSuivante();
 }
@@ -450,6 +557,21 @@ function reprendreInfini(etat) {
   etat.enCours = false;
   infini = etat;
   _observer();
+}
+
+function arreterChargement(etat, message, boutons, aide) {
+  if (observateur) { observateur.disconnect(); observateur = null; }
+  etat.sentinelle.classList.remove("finie");
+  etat.sentinelle.classList.add("erreur");
+  etat.sentinelle.innerHTML = blocErreur(message, boutons, aide);
+}
+
+function reessayerInfini() {
+  if (!infini) return;
+  infini.sentinelle.classList.remove("erreur");
+  infini.sentinelle.innerHTML = '<div class="rond"></div>';
+  _observer();
+  chargerPageSuivante();
 }
 
 async function chargerPageSuivante() {
@@ -466,8 +588,14 @@ async function chargerPageSuivante() {
       etat.vides = 0;
       ajouterCartes(etat.grille, nouveaux);
     } else if (++etat.vides >= 3) {              // 3 pages vides d'affilée = fin
-      etat.sentinelle.classList.add("finie");
-      observateur && observateur.disconnect();
+      if (!etat.grille.children.length) {
+        // Rien n'a pu être chargé du tout : on explique au lieu de tourner dans le vide
+        arreterChargement(etat, etat.videMessage,
+          `<button onclick="reessayerInfini()">🔄 Réessayer</button>`, etat.videAide);
+      } else {
+        etat.sentinelle.classList.add("finie");
+        if (observateur) { observateur.disconnect(); observateur = null; }
+      }
       return;
     }
     // si l'écran n'est pas rempli, on continue tout de suite
@@ -475,8 +603,15 @@ async function chargerPageSuivante() {
     if (etat.sentinelle.getBoundingClientRect().top < innerHeight + 900 && etat.page < 50)
       chargerPageSuivante();
     return;
-  } catch {}
-  if (etat === infini) etat.enCours = false;
+  } catch (e) {
+    // Plus jamais de rond qui tourne pour toujours : on affiche la raison
+    if (etat !== infini) return;
+    etat.enCours = false;
+    const aide = /yt-dlp/i.test(e.message || "") ? AIDE_YTDLP : "";
+    arreterChargement(etat, e.message || "Impossible de charger la suite.",
+                      `<button onclick="reessayerInfini()">🔄 Réessayer</button>`, aide);
+    return;
+  }
 }
 
 function ajouterCartes(grille, items) {
@@ -491,8 +626,8 @@ function gabaritInfini(titreSection) {
 }
 
 async function fetchRecherche(q, page = 0, n = 20) {
-  const r = await fetch(`/api/recherche?q=${encodeURIComponent(q)}&page=${page}&n=${n}`);
-  return r.json();
+  const data = await apiJSON(`/api/recherche?q=${encodeURIComponent(q)}&page=${page}&n=${n}`);
+  return Array.isArray(data) ? data : [];
 }
 
 /* mots-clés d'un titre (pour les suggestions par sujet) */
@@ -561,10 +696,18 @@ function arreterAudioHD() {
   if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
   if (audioHD) { audioHD.pause(); audioHD.src = ""; audioHD = null; }
 }
-function lireHD(video, urlVideo, urlAudio) {
+function lireHD(video, urlVideo, urlAudio, urlSecours) {
   arreterAudioHD();
   video.src = urlVideo;
   audioHD = new Audio(urlAudio);
+  // Si la piste audio HD ne se charge pas, on repasse sur le flux complet (sinon : vidéo muette)
+  audioHD.onerror = () => {
+    if (urlSecours && videoActuelle) {
+      arreterAudioHD();
+      video.src = urlSecours;
+      video.play().catch(() => {});
+    }
+  };
   const sync = () => { if (audioHD && Math.abs(audioHD.currentTime - video.currentTime) > 0.3) audioHD.currentTime = video.currentTime; };
   video.onplay = () => { if (audioHD) { sync(); audioHD.play(); } };
   video.onpause = () => audioHD && audioHD.pause();
@@ -576,6 +719,38 @@ function lireHD(video, urlVideo, urlAudio) {
   syncTimer = setInterval(() => { if (audioHD && !video.paused) sync(); }, 2000);
 }
 
+/* Affiche l'erreur dans le lecteur au lieu de laisser « chargement… » pour toujours */
+function arreterLectureAvecErreur(message, item, aide) {
+  const titre = document.getElementById("titre");
+  if (item && item.titre) titre.textContent = item.titre;
+  document.getElementById("sousLigne").innerHTML = blocErreur(message,
+    `<button onclick="reessayerLecture()">🔄 Réessayer</button>
+     <button onclick="retour()">← Retour</button>`, aide || "");
+}
+
+function reessayerLecture() { if (dernierItem) lire(dernierItem); }
+
+let dernierItem = null;
+let compteurLecture = 0;
+let minuteurFlux = null;
+
+/* Surveille le démarrage du flux : un écran noir sans explication, c'est fini */
+function surveillerFlux(video) {
+  clearTimeout(minuteurFlux);
+  video.onerror = () => {
+    clearTimeout(minuteurFlux);
+    if (!videoActuelle) return;
+    arreterLectureAvecErreur("La lecture du flux a échoué (lien expiré ou bloqué par YouTube).",
+                             dernierItem);
+  };
+  minuteurFlux = setTimeout(() => {
+    if (video.readyState < 2 && videoActuelle) {
+      arreterLectureAvecErreur(
+        "Le flux met trop de temps à démarrer (connexion lente ou lien expiré).", dernierItem);
+    }
+  }, 35000);
+}
+
 async function lire(item) {
   if (infini && document.getElementById("contenu").contains(infini.grille)) infiniSauvegarde = infini;
   arreterInfini();
@@ -585,6 +760,13 @@ async function lire(item) {
   window.scrollTo(0, 0);
   if (item.fichier) return lireLocal(item);   // vidéo hors ligne
 
+  dernierItem = item;
+  const jeton = ++compteurLecture;
+  const video = document.getElementById("video");
+  clearTimeout(minuteurFlux);
+  video.onerror = null;
+  arreterAudioHD();
+
   document.getElementById("titre").textContent = item.titre || "Chargement…";
   document.getElementById("sousLigne").innerHTML = "⏳ chargement du flux sans pub…";
   document.getElementById("description").textContent = "";
@@ -592,9 +774,22 @@ async function lire(item) {
   document.getElementById("btnDl").style.display = "";
   reinitBoutonDl();
 
-  const r = await fetch("/api/video/" + item.id);
-  const v = await r.json();
-  if (v.erreur) { document.getElementById("titre").textContent = "⚠️ " + v.erreur; return; }
+  let v;
+  try {
+    v = await apiJSON("/api/video/" + item.id);
+  } catch (e) {
+    if (jeton !== compteurLecture) return;        // une autre vidéo a été ouverte entre-temps
+    const aide = /yt-dlp/i.test(e.message || "") ? AIDE_YTDLP : "";
+    arreterLectureAvecErreur(e.message || "Impossible de récupérer cette vidéo.", item, aide);
+    return;
+  }
+  if (jeton !== compteurLecture) return;          // réponse arrivée trop tard : on l'ignore
+  if (v.erreur) { arreterLectureAvecErreur(v.erreur, item); return; }
+  if (!v.flux && !v.flux_video) {
+    arreterLectureAvecErreur(
+      "Aucun flux lisible trouvé pour cette vidéo (privée, réservée aux abonnés ou bloquée).", item);
+    return;
+  }
   videoActuelle = v;
   ajouterHistorique(v);
   majBoutonFavori();
@@ -609,10 +804,10 @@ async function lire(item) {
   document.getElementById("description").textContent = v.description || "";
   document.getElementById("description").classList.remove("ouverte");
 
-  const video = document.getElementById("video");
   [...video.querySelectorAll("track")].forEach(t => t.remove());
-  if (v.flux_video && v.flux_audio) lireHD(video, v.flux_video, v.flux_audio);
-  else { arreterAudioHD(); video.src = v.flux || ""; }
+  if (v.flux_video && v.flux_audio) lireHD(video, v.flux_video, v.flux_audio, v.flux);
+  else { arreterAudioHD(); video.src = v.flux_video || v.flux; }
+  surveillerFlux(video);
   video.playbackRate = 1;
   document.getElementById("selVitesse").value = "1";
 
@@ -656,12 +851,23 @@ async function chargerSubs() {
   const [lang, traduire] = val.split("|");
   const jeton = ++compteurSubs;
   if (traduire === "1") toast("⏳ Traduction en cours… (instantané dès la 2e fois)");
-  // préchargé via fetch pour ne PAS toucher à la vidéo pendant la préparation
+  // préchargé via requete() pour ne PAS toucher à la vidéo pendant la préparation
   try {
-    const r = await fetch(`/api/soustitres/${videoActuelle.id}?lang=${lang}&traduire=${traduire}`);
-    const vtt = await r.text();
+    const r = await requete(`/api/soustitres/${encodeURIComponent(videoActuelle.id)}?lang=${encodeURIComponent(lang)}&traduire=${traduire}`,
+                            { delai: 120000 });
     if (jeton !== compteurSubs) return;   // l'utilisateur a changé entre-temps
-    const blob = URL.createObjectURL(new Blob([vtt], { type: "text/vtt" }));
+    if (!r.ok) {
+      let msg = `Erreur serveur (${r.status}).`;
+      try { msg = JSON.parse(r.texte).erreur || msg; } catch { }
+      toast("⚠️ " + msg);
+      return;
+    }
+    const avertissement = r.entetes.get("X-Traduction");
+    if (r.entetes.get("X-Soustitres") === "indisponibles") {
+      toast("⚠️ Aucun sous-titre disponible pour cette vidéo");
+      return;
+    }
+    const blob = URL.createObjectURL(new Blob([r.texte], { type: "text/vtt" }));
     const track = document.createElement("track");
     track.kind = "subtitles";
     track.label = traduire === "1" ? "Français (traduit)" : lang;
@@ -669,9 +875,17 @@ async function chargerSubs() {
     track.default = true;
     video.appendChild(track);
     track.addEventListener("load", () => { track.track.mode = "showing"; });
-    if (traduire === "1") toast("✅ Sous-titres traduits activés");
-  } catch {
-    toast("⚠️ Sous-titres indisponibles");
+    if (traduire !== "1") return;
+    if (avertissement === "absente") {
+      toast("⚠️ Traduction indisponible : tape « pip install argostranslate » puis relance DjessTube");
+    } else if (avertissement) {
+      toast("⏳ Traduction en préparation (téléchargement) — sous-titres originaux affichés, réessaie dans 1 min");
+    } else {
+      toast("✅ Sous-titres traduits activés");
+    }
+  } catch (e) {
+    if (jeton !== compteurSubs) return;
+    toast("⚠️ " + (e.message || "Sous-titres indisponibles"));
   }
 }
 
@@ -703,8 +917,12 @@ function chargerSimilaires(v) {
 /* ---- lecture hors ligne ---- */
 function lireLocal(v) {
   videoActuelle = null;
+  dernierItem = v;
+  compteurLecture++;                 // annule toute requête de lecture encore en cours
+  clearTimeout(minuteurFlux);
   clearInterval(posTimer);
   arreterAudioHD();
+  document.getElementById("video").onerror = null;
   document.getElementById("titre").textContent = v.titre;
   document.getElementById("sousLigne").innerHTML = '<span class="q">📥 hors ligne · aucune connexion requise</span>' +
     (v.taille ? `<span>${fmtTaille(v.taille)}</span>` : "");
@@ -740,7 +958,10 @@ function retour() {
   document.getElementById("lecteur").classList.remove("cinema");
   arreterAudioHD();
   clearInterval(posTimer);
+  clearTimeout(minuteurFlux);
+  compteurLecture++;                 // ignore les réponses des vidéos qu'on vient de quitter
   const video = document.getElementById("video");
+  video.onerror = null;
   video.pause();
   video.removeAttribute("src");
   document.getElementById("selSubs").onchange = chargerSubs;
@@ -782,21 +1003,27 @@ async function lancerTelechargement() {
   const q = document.getElementById("selQualite").value;
   if (!q || !videoActuelle) return;
   document.getElementById("selQualite").style.display = "none";
-  await fetch("/api/telecharger/" + videoActuelle.id, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ qualite: q, titre: videoActuelle.titre }),
-  });
+  try {
+    await apiJSON("/api/telecharger/" + videoActuelle.id, {
+      methode: "POST", delai: 30000,
+      corps: { qualite: q, titre: videoActuelle.titre },
+    });
+  } catch (e) {
+    toast("⚠️ " + (e.message || "Téléchargement impossible"));
+    return;
+  }
   toast(q === "audio" ? "🎵 Extraction MP3 lancée" : `🎬 Téléchargement ${q}p lancé`);
   suivreTelechargements();
 }
 
 let timerDl = null;
+let echecsDl = 0;
 function suivreTelechargements() {
   if (timerDl) return;
   timerDl = setInterval(async () => {
     try {
-      const dls = await (await fetch("/api/telechargements")).json();
+      const dls = await apiJSON("/api/telechargements", { delai: 10000 });
+      echecsDl = 0;
       const actifs = Object.values(dls).filter(d => d.etat === "en cours");
       const badge = document.getElementById("badgeDl");
       badge.classList.toggle("actif", actifs.length > 0);
@@ -814,7 +1041,13 @@ function suivreTelechargements() {
       }
       if (vueActuelle === "telechargements" && document.getElementById("lecteur").style.display !== "block")
         rendreListeDl(dls);
-    } catch {}
+    } catch (e) {
+      // Le serveur ne répond plus : on arrête de surveiller au lieu de tourner dans le vide
+      if (++echecsDl >= 5) {
+        clearInterval(timerDl); timerDl = null; echecsDl = 0;
+        document.getElementById("badgeDl").classList.remove("actif");
+      }
+    }
   }, 1200);
 }
 
@@ -824,20 +1057,23 @@ function rendreListeDl(dls) {
   c.innerHTML = '<h2 class="section">⬇️ Téléchargements</h2>' +
     (entrees.length ? '<div class="liste-dl">' + entrees.map(([id, d]) => `
       <div class="item-dl">
-        <div class="t"><span>${d.qualite === "audio" ? "🎵" : "🎬"} ${(d.titre || id).replace(/</g, "&lt;")}</span>
+        <div class="t"><span>${d.qualite === "audio" ? "🎵" : "🎬"} ${echapper(d.titre || id)}</span>
           <span class="etat">${d.etat === "en cours" ? Math.round(d.pct) + " %" : d.etat === "terminé" ? "✅ terminé" : "❌ erreur"}</span></div>
         <div class="barre"><div style="width:${d.pct}%"></div></div>
+        ${d.etat === "erreur" && d.raison ? `<div class="aide" style="color:var(--texte2);font-size:13px;margin-top:8px">${echapper(d.raison)}</div>` : ""}
       </div>`).join("") + "</div>"
     : '<div class="info">Aucun téléchargement pour cette session.<br>Pendant une lecture, clique sur <b>⬇️ Télécharger</b> et choisis la qualité (ou 🎵 MP3 pour la musique).</div>');
 }
 
 async function afficherTelechargements() {
   try {
-    const dls = await (await fetch("/api/telechargements")).json();
+    const dls = await apiJSON("/api/telechargements", { delai: 12000 });
     rendreListeDl(dls);
     if (Object.values(dls).some(d => d.etat === "en cours")) suivreTelechargements();
-  } catch {
-    document.getElementById("contenu").innerHTML = '<div class="info">Serveur injoignable.</div>';
+  } catch (e) {
+    document.getElementById("contenu").innerHTML =
+      blocErreur(e.message || "Serveur injoignable.",
+                 `<button onclick="afficherTelechargements()">🔄 Réessayer</button>`);
   }
 }
 
@@ -845,7 +1081,16 @@ async function afficherTelechargements() {
 async function afficherHorsLigne() {
   const c = document.getElementById("contenu");
   c.innerHTML = '<h2 class="section">📥 Hors ligne</h2>' + squelettes(4);
-  const list = await (await fetch("/api/bibliotheque")).json();
+  let list;
+  try {
+    list = await apiJSON("/api/bibliotheque", { delai: 20000 });
+  } catch (e) {
+    c.innerHTML = '<h2 class="section">📥 Hors ligne</h2>' +
+      blocErreur(e.message || "Serveur injoignable.",
+                 `<button onclick="afficherHorsLigne()">🔄 Réessayer</button>`);
+    return;
+  }
+  if (!Array.isArray(list)) list = [];
   c.innerHTML = '<h2 class="section">📥 Hors ligne — regardable sans Internet</h2>' +
     (list.length ? '<div class="grille"></div>'
      : '<div class="info">Rien de téléchargé pour l\'instant.<br>Pendant une lecture, clique sur <b>⬇️ Télécharger</b>.</div>');
@@ -870,10 +1115,12 @@ async function afficherHorsLigne() {
 }
 async function supprimerFichier(fichier) {
   if (!confirm("Supprimer « " + fichier + " » ?")) return;
-  await fetch("/api/supprimer", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fichier }),
-  });
+  try {
+    await apiJSON("/api/supprimer", { methode: "POST", delai: 15000, corps: { fichier } });
+  } catch (e) {
+    toast("⚠️ " + (e.message || "Suppression impossible"));
+    return;
+  }
   toast("🗑️ Supprimé");
   afficherHorsLigne();
 }
@@ -891,8 +1138,29 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ================= démarrage ================= */
+/* Vérifie l'installation : si yt-dlp manque, on prévient tout de suite au lieu
+   de laisser la page tourner dans le vide. */
+async function verifierInstallation() {
+  let etat;
+  try {
+    etat = await apiJSON("/api/etat", { delai: 12000 });
+  } catch (e) {
+    montrerBanniere(
+      "DjessTube n'arrive pas à joindre son serveur. " +
+      "Regarde la fenêtre noire « DjessTube » : elle doit rester ouverte pendant l'utilisation.");
+    return;
+  }
+  if (!etat.yt_dlp) {
+    montrerBanniere(
+      "yt-dlp n'est pas installé : la recherche, la lecture et les téléchargements ne peuvent pas " +
+      "fonctionner. Tape <code>pip install -U yt-dlp</code> dans une invite de commandes, " +
+      "puis relance DjessTube.");
+  }
+}
+
 allerVue("accueil");
 suivreTelechargements();
+verifierInstallation();
 </script>
 </body>
 </html>

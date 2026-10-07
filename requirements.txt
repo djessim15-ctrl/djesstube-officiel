@@ -1,0 +1,7 @@
+flask>=3.0
+yt-dlp>=2024.1.1
+
+# Optionnel : traduction des sous-titres en français, 100 % hors ligne.
+# Sans ce paquet, tout le reste fonctionne (les sous-titres sont juste
+# affichés dans leur langue d'origine).
+# argostranslate>=1.9
